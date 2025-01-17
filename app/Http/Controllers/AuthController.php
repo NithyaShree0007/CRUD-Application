@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\UserSubscribed;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    //Register user
+    // Register user
     public function register(Request $request) {
+
         //Validate
         $fields = $request->validate([
             'name' => ['required', 'max:255'],
@@ -23,19 +27,45 @@ class AuthController extends Controller
         //Login
         Auth::login($user);
 
+        event(new Registered($user));
+
+        if ($request->subscribe) {
+            event(new UserSubscribed($user)); 
+        }
+
         //Redirect
         return redirect()->route('dashboard');
     }
 
-    //Login user
+    // Email Verification Notice route
+    public function verifyNotice () {
+        return view('auth.verify-email');
+    }
+
+    // Email Verification Handler route
+    public function verifyEmail (EmailVerificationRequest $request) {
+        $request->fulfill();
+     
+        return redirect()->route('dashboard');
+    }
+
+    // Resending the Verification Email route
+    public function verifyHandler (Request $request) {
+        $request->user()->sendEmailVerificationNotification();
+     
+        return back()->with('message', 'Verification link sent!');
+    }
+
+    // Login user
     public function login(Request $request) {
-        //Validate
+
+        // Validate
         $fields = $request->validate([
             'email' => ['required', 'max:255', 'email'],
             'password' => ['required']
         ]);
 
-        //Try to login the user
+        // Try to login the user
         if (Auth::attempt($fields, $request->remember)) {
             return redirect()->intended();
         }
@@ -61,4 +91,3 @@ class AuthController extends Controller
         return redirect('/');
     }
 }
- 
